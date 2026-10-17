@@ -1,0 +1,37 @@
+# Local, throwaway databases for development and tests.
+# Start: npm run db:up   Stop: npm run db:down   Wipe data: npm run db:reset
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dbspy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dbspy_local}
+    ports:
+      # Bound to localhost so the database isn't reachable from the local network.
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Runs only on first start, when the data volume is empty.
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./tests/util/test_postgresDB.sql:/sample/test_postgresDB.sql:ro
+    healthcheck:
+      # Check over TCP, not the socket: during first-start init, a temporary server
+      # answers on the socket only, so a socket check reports healthy before the seed loads.
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U "$${POSTGRES_USER}" -d postgres']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - '127.0.0.1:6379:6379'
+    # No volume: rate-limit counters and sessions are meant to be disposable.
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:
