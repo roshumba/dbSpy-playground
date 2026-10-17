@@ -19,7 +19,11 @@
     "test:watch": "jest --watch",
     "cert:mac": "rm -rf .cert && mkdir -p .cert && mkcert -key-file ./.cert/key.pem -cert-file ./.cert/cert.pem localhost",
     "cert:linux": "rm -rf .cert && mkdir -p .cert && cd .cert && mkcert create-ca && mkcert create-cert --key key.pem --cert cert.pem",
-    "e2e": "cypress open --project ./tests"
+    "e2e": "cypress open --project ./tests",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down -v && docker compose up -d --wait",
+    "test:infra": "jest -c jest.infra.config.ts"
   },
   "author": "Vicky Yue, Reva Venkataraman, Yihe Liu, Roshumba Llewellyn, Emma Vargas",
   "license": "MIT",
@@ -53,7 +57,6 @@
     "nanoid": "^5.1.5",
     "node-fetch": "^3.2.10",
     "node-oracledb": "^1.0.2",
-    "oracle": "^0.4.1",
     "pg": "^8.10.0",
     "pg-dump": "^0.10.0",
     "pino": "^8.7.0",
