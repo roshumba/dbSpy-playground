@@ -27,6 +27,17 @@ describe('parseConnectionString', () => {
     expect(parsed.password).toBe('p@ss');
   });
 
+  it('decodes %25 to a literal % in the password', () => {
+    const parsed = parseConnectionString('postgres://ana:p%25ss@db.example.com:5432/shop');
+    expect(parsed.password).toBe('p%ss');
+  });
+
+  it('rejects a malformed % sequence with a clear message, not a raw URIError', () => {
+    expect(() =>
+      parseConnectionString('postgres://ana:pass%word@db.example.com:5432/shop')
+    ).toThrow('Invalid % sequence in the connection string. Encode % as %25');
+  });
+
   it('reads sslmode without leaking the query string into the database name', () => {
     const parsed = parseConnectionString(
       'postgres://ana:secret@db.example.com:5432/shop?sslmode=require'
@@ -38,6 +49,12 @@ describe('parseConnectionString', () => {
   it('defaults the port to 5432 when none is given', () => {
     const parsed = parseConnectionString('postgres://ana:secret@db.example.com/shop');
     expect(parsed.port).toBe('5432');
+  });
+
+  it('rejects a scheme other than postgres or postgresql', () => {
+    expect(() => parseConnectionString('mysql://ana:secret@db.example.com:3306/shop')).toThrow(
+      'Unsupported scheme "mysql:". Use postgres:// or postgresql://'
+    );
   });
 
   it('rejects a URL without a username and password', () => {
