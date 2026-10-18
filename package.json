@@ -9,6 +9,9 @@
   },
   "scripts": {
     "seed": "ts-node ./server/seed/seed.ts",
+    "predev": "node scripts/check-node.js",
+    "pretest": "node scripts/check-node.js",
+    "prestart": "node scripts/check-node.js",
     "start": "cross-env NODE_ENV=production ts-node server/server.ts",
     "start:test": "cross-env NODE_ENV=test ts-node server/server.ts",
     "build": "vite build",
