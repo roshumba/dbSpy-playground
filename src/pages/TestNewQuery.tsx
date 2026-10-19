@@ -103,16 +103,9 @@ const TestNewQuery: React.FC = () => {
             values.queryString = queryString;
             values.queryName = queryName;
             break;
-          default:
-            const postgresName = splitURI[3];
-            const postgresPort = splitURI[2].split(':')[2];
-            const internalLinkArray_Postgres = splitURI[2].split(':')[1].split('@');
-            values.hostname = internalLinkArray_Postgres[1];
-            values.username = splitURI[2].split(':')[0];
-            values.password = internalLinkArray_Postgres[0];
-            values.port = postgresPort ? postgresPort : '5432';
-            values.database_name = postgresName;
+          default: // PostgreSQL: the server parses the link (parseConnectionString)
             values.db_type = 'postgres';
+            values.database_link = fullLink;
             values.queryString = queryString;
             values.queryName = queryName;
             break;
@@ -127,8 +120,19 @@ const TestNewQuery: React.FC = () => {
       // set values to use in save query function
       setDbValues(values);
 
+      // A Postgres link goes to the server as typed; the separate fields aren't needed.
+      const params =
+        values.db_type === 'postgres' && values.database_link
+          ? {
+              db_type: 'postgres',
+              database_link: values.database_link,
+              queryString: values.queryString,
+              queryName: values.queryName,
+            }
+          : values;
+
       const dataFromBackend = await axios
-        .get(`/api/sql/${values.db_type}/run-query`, { params: values })
+        .get(`/api/sql/${values.db_type}/run-query`, { params })
         .then((res) => {
           // set query result state with data from response (array)
           // and set more metrics array of objects state
@@ -140,9 +144,15 @@ const TestNewQuery: React.FC = () => {
           setQueryString('');
           setDatabaseLink('');
         })
-        .catch((err: ErrorEvent) => {
+        .catch((err: unknown) => {
           console.error('Run query error', err);
-          setError(err.error || 'Failed to run query');
+          // The server sends its message (e.g. "Username and password are required") as the body.
+          const serverMessage = axios.isAxiosError(err) ? err.response?.data : undefined;
+          setError(
+            typeof serverMessage === 'string'
+              ? serverMessage
+              : 'Error running query. Check DB link and/or SQL query.'
+          );
         });
     } catch (error) {
       console.error('sendQuery Error: Failed to test query', error);
@@ -268,11 +278,7 @@ const TestNewQuery: React.FC = () => {
           {/* ------------------ Query Result --------------- */}
           {/* this wrap aligns the title 'Query Results' w/ the table  together */}
           <div className="mt-4 flex gap-x-8">
-            {error && (
-              <div className="mt-8 text-white">
-                Error running query. Check DB link and/or SQL query.
-              </div>
-            )}
+            {error && <div className="mt-8 text-white">{error}</div>}
             {queryResult && (
               <div className="overflow-x w-full max-w-[1300px] shrink-0 text-xl font-semibold text-accent dark:text-accentText">
                 {isQuerySaved ? 'Query Saved!' : ''}

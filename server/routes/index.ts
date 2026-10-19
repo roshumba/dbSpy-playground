@@ -17,6 +17,7 @@ import { config } from 'dotenv';
 import log from '../logger';
 import type { DefaultErr } from '../../src/Types';
 import session from 'express-session';
+import { parseConnectionString } from '../controllers/helperFunctions/parseConnectionString';
 import path from 'path';
 
 config();
@@ -133,8 +134,41 @@ const routes = (app: Express) => {
 };
 
 export const cookieSession = (req: Request, _res: Response, next: NextFunction) => {
-  const { db_type, hostname, password, port, username, database_name, service_name } =
-    req.query;
+  const {
+    db_type,
+    hostname,
+    password,
+    port,
+    username,
+    database_name,
+    service_name,
+    database_link,
+  } = req.query;
+
+  // Postgres links are parsed here; MySQL is still split in the Sidebar and
+  // sends its link along too, so only parse when the request is for Postgres.
+  if (db_type === 'postgres' && typeof database_link === 'string' && database_link) {
+    try {
+      const parsed = parseConnectionString(database_link);
+      req.session.db_type = parsed.db_type;
+      req.session.hostname = parsed.hostname;
+      req.session.port = parsed.port;
+      req.session.username = parsed.username;
+      req.session.password = parsed.password;
+      req.session.database_name = parsed.database_name;
+      return next();
+    } catch (err: unknown) {
+      // A plain object, not the Error: the global handler copies fields with
+      // Object.assign, which skips an Error's non-enumerable message.
+      const badLink: DefaultErr = {
+        log: 'cookieSession: could not parse database_link',
+        status: 400,
+        message: err instanceof Error ? err.message : 'Invalid connection string',
+      };
+      return next(badLink);
+    }
+  }
+
   try {
     if (typeof db_type === 'string') {
       req.session.db_type = db_type;

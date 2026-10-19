@@ -256,8 +256,10 @@ const postgresController = {
 
       const userEmail = user.email;
       const { query_date, exec_time } = req.body.params.extractedQueryRes;
-      const { queryString, queryName, hostname, database_name } =
-        req.body.params.dbValues;
+      const { queryString, queryName } = req.body.params.dbValues;
+      // Where the query ran comes from the session cookieSession set when the
+      // link was parsed, not from what the browser says.
+      const { hostname, database_name } = req.session;
       const {
         planningTime,
         totalCost,
