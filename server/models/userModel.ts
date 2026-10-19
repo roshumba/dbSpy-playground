@@ -52,16 +52,18 @@ const pool = mysql
   })
   .promise(); // wrap with promise API
 
-// Test Connection
-pool
-  .getConnection()
-  .then((connection) => {
-    log.info(`✅ MySQL pool connection established`);
-    connection.release();
-  })
-  .catch((err) => {
-    log.error(`❌ MySQL connection error:`, err);
-  });
+// Test Connection. Called by server.ts at startup, not on import, so tests
+// that import a controller don't open a connection.
+export const checkUserDbConnection = () =>
+  pool
+    .getConnection()
+    .then((connection) => {
+      log.info(`✅ MySQL pool connection established`);
+      connection.release();
+    })
+    .catch((err) => {
+      log.error(`❌ MySQL connection error:`, err);
+    });
 
 /**
  * User Database Schema
