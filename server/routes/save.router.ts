@@ -1,7 +1,6 @@
 // This is going to be my new place to build out the upgraded saving logic.
 // Everything seems fine. The only potential concern is testing the volume of data being allowed to be saved by users.
 import { Router, Response, Request } from 'express';
-import bodyParser from 'body-parser';
 import saveController from '../controllers/save.controller';
 import { isAuthenticated } from '../controllers/user.controller';
 
