@@ -257,9 +257,60 @@ describe('Test New Query Component', () => {
     mockGet.mockRestore();
   });
 
-  //? Testing (8): clicking Run Query button renders error message
-  // mock the axios Get Req to fail
-  // confirm error message renders (error running query, check db link and query)
+  //? Testing (8): a Postgres link is sent as typed, for the server to parse
+  it('sends a Postgres link to the BE unparsed, without split-out credentials', async () => {
+    const mockGet = jest.spyOn(axios, 'get').mockResolvedValue({
+      data: { metrics: [], otherMetrics: [{}] },
+    });
+    renderWithRouter(<TestNewQuery />);
+
+    // a raw @ in the password: the old browser-side split cut this at the wrong @
+    const link = 'postgres://ana:p@ss@db.example.com:5432/shop?sslmode=require';
+    await userEvent.type(screen.getByPlaceholderText(/Name your query/i), 'My Test Query');
+    await userEvent.type(screen.getByPlaceholderText(/Enter DB link here/i), link);
+    await userEvent.type(
+      screen.getByPlaceholderText(/Write your SQL query here/i),
+      'SELECT * FROM users'
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Run Query/i }));
+
+    await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(1));
+    expect(mockGet).toHaveBeenCalledWith('/api/sql/postgres/run-query', {
+      params: {
+        db_type: 'postgres',
+        database_link: link,
+        queryString: 'SELECT * FROM users',
+        queryName: 'My Test Query',
+      },
+    });
+    mockGet.mockRestore();
+  });
+
+  //? Testing (9): clicking Run Query button renders the server's error message
+  it("shows the server's error message when the BE rejects the link", async () => {
+    const mockGet = jest.spyOn(axios, 'get').mockRejectedValue(
+      Object.assign(new Error('Request failed with status code 400'), {
+        isAxiosError: true,
+        response: { status: 400, data: 'Username and password are required' },
+      })
+    );
+    renderWithRouter(<TestNewQuery />);
+
+    await userEvent.type(
+      screen.getByPlaceholderText(/Enter DB link here/i),
+      'postgres://localhost/shop'
+    );
+    await userEvent.type(
+      screen.getByPlaceholderText(/Write your SQL query here/i),
+      'SELECT 1'
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Run Query/i }));
+
+    expect(
+      await screen.findByText(/Username and password are required/i)
+    ).toBeInTheDocument();
+    mockGet.mockRestore();
+  });
 
   //? Testing (9): clicking Run Query button clears the input fields
   // mock running a query
