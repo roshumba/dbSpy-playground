@@ -21,6 +21,8 @@ const Sidebar = (props: any) => {
   const [dbName, setDBName] = useState('');
   //used to signal whether loading indicator should appear on sidebar or not, if connect button is pressed
   const [connectPressed, setConnectPressed] = useState(false);
+  //message shown under the Connect button when the server rejects the connection
+  const [connectError, setConnectError] = useState('');
   //used to signal whether full database url input should display in form
   const [_selected, setSelected] = useState('postgres');
   const infoIconStr: string =
@@ -83,16 +85,7 @@ const Sidebar = (props: any) => {
           values.db_type = 'oracle';
           values.service_name = values.service_name;
           break;
-        default: // PostgreSQL
-          const postgresName = splitURI[3];
-          const postgresPort = splitURI[2].split(':')[2];
-          const internalLinkArray_Postgres = splitURI[2].split(':')[1].split('@');
-          values.hostname = internalLinkArray_Postgres[1];
-          values.username = splitURI[2].split(':')[0];
-          values.password = internalLinkArray_Postgres[0];
-          values.port = postgresPort ? postgresPort : '5432';
-          values.database_name = postgresName;
-          // values.database_link = fullLink;
+        default: // PostgreSQL: the server parses the link (parseConnectionString)
           values.db_type = 'postgres';
           break;
       }
@@ -103,21 +96,33 @@ const Sidebar = (props: any) => {
 
     //update dbCredentials
     setDbCredentials(values);
+    setConnectError('');
     setConnectPressed(true);
 
-    //change between which getSchema from MySQL to postgres based on db_type
+    // A Postgres link goes to the server as typed; the separate fields aren't needed.
+    const params =
+      values.db_type === 'postgres' && values.database_link
+        ? { db_type: 'postgres', database_link: values.database_link }
+        : values;
 
-    const dataFromBackend = await axios
-      .get(`/api/sql/${values.db_type}/schema`, { params: values })
-      .then((res) => {
-        return res.data;
-      })
-      .catch((err: ErrorEvent) => console.error('getSchema error', err));
-    setSchemaStore(dataFromBackend.schema);
-    setDataStore(dataFromBackend.data);
-    setWelcome(false);
-    setConnectPressed(false);
-    props.closeNav();
+    //change between which getSchema from MySQL to postgres based on db_type
+    try {
+      const { data } = await axios.get(`/api/sql/${values.db_type}/schema`, { params });
+      setSchemaStore(data.schema);
+      setDataStore(data.data);
+      setWelcome(false);
+      props.closeNav();
+    } catch (err: unknown) {
+      // The server sends its message (e.g. "Username and password are required") as the body.
+      const serverMessage = axios.isAxiosError(err) ? err.response?.data : undefined;
+      setConnectError(
+        typeof serverMessage === 'string'
+          ? serverMessage
+          : 'Could not connect. Check your connection details and try again.'
+      );
+    } finally {
+      setConnectPressed(false);
+    }
   };
 
   //on change for db type selection, will affect state to conditionally render database URL
@@ -187,6 +192,9 @@ const Sidebar = (props: any) => {
                 setFormValues({ ...formValues, database_link: e.target.value })
               }
             />
+            <p className="mt-1 text-xs dark:text-[#f8f4eb]">
+              Must include username and password
+            </p>
           </div>
         )}
         {dbName === 'oracle' && (
@@ -344,6 +352,11 @@ const Sidebar = (props: any) => {
         Connect
       </button>
       <br></br>
+      {connectError && (
+        <p role="alert" className="text-center text-sm text-red-600 dark:text-red-400">
+          {connectError}
+        </p>
+      )}
       {!connectPressed ? (
         <div className="h-[58px]"></div>
       ) : (
